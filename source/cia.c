@@ -102,6 +102,15 @@ SMDH parseSMDH(const char * cia)
 	return smdh;
 }
 
+typedef struct 
+{
+	u32 magic;
+	u8 * pixels;
+	int width;
+	int height;
+	u16 bitperpixel;
+} Bitmap;
+
 void putPixel565(u8 * dst, u8 x, u8 y, u16 v)
 {
 	dst[(x+(47-y)*48)*3+0]=(v&0x1F)<<3;

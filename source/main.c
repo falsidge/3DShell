@@ -9,11 +9,12 @@
 #include "language.h"
 #include "main.h"
 #include "mcu.h"
+#include "music.h"
 #include "net.h"
+#include "ogg.h"
 #include "power.h"
 #include "screen.h"
 #include "screenshot.h"
-#include "sound.h"
 #include "task.h"
 #include "theme.h"
 #include "updater.h"
@@ -24,15 +25,14 @@ struct colour BottomScreen_colour;
 struct colour BottomScreen_bar_colour;
 struct colour BottomScreen_text_colour;
 
-//static struct sound *bgm;
+struct audio * bgm;
 
 void initServices(void)
 {
 	srvInit();
 	fsInit();
 	sdmcInit();
-	openArchive(ARCHIVE_SDMC);
-	sdmcWriteSafe(false);
+	openArchive(&fsArchive, ARCHIVE_SDMC);
 	aptInit();
 	mcuInit();
 	ptmuInit();
@@ -117,6 +117,11 @@ void initServices(void)
 	screen_load_texture_png(TEXTURE_WIFI_3, "romfs:/res/wifi/stat_sys_wifi_signal_3.png", true);
 	
 	screen_load_texture_png(TEXTURE_GALLERY_BAR, "romfs:/res/gallery/bar.png", true);
+	
+	screen_load_texture_png(TEXTURE_MUSIC_BOTTOM_BG, "romfs:/res/music/background_bottom.png", true);
+	screen_load_texture_png(TEXTURE_MUSIC_TOP_BG, "romfs:/res/music/background_top.png", true);
+	screen_load_texture_png(TEXTURE_MUSIC_PLAY, "romfs:/res/music/play.png", true);
+	screen_load_texture_png(TEXTURE_MUSIC_PAUSE, "romfs:/res/music/pause.png", true);
 
 	if (isN3DS())
 		osSetSpeedupEnable(true);
@@ -133,12 +138,25 @@ void initServices(void)
 	BROWSE_STATE = STATE_SD;
 	
 	/*if (fileExists(fsArchive, "/3ds/3DShell/bgm.ogg")) // Initally create this to avoid crashes
-		bgm = sound_create(BGM);*/
+	{
+		bgm = ogg_create(BGM);
+		if (bgm != NULL) 
+			ogg_load("3ds/3DShell/bgm.ogg", bgm);
+		else 
+			bgm->status = -1;
+	}*/
 }
 
 void termServices(void)
 {	
+	// audio_stop(bgm);
+	
 	osSetSpeedupEnable(0);
+	
+	screen_unload_texture(TEXTURE_MUSIC_PAUSE);
+	screen_unload_texture(TEXTURE_MUSIC_PLAY);
+	screen_unload_texture(TEXTURE_MUSIC_TOP_BG);
+	screen_unload_texture(TEXTURE_MUSIC_BOTTOM_BG);
 	
 	screen_unload_texture(TEXTURE_GALLERY_BAR);
 	
@@ -215,7 +233,7 @@ void termServices(void)
 	ptmuExit();
 	mcuExit();
 	aptExit();
-	closeArchive();
+	closeArchive(fsArchive);
 	sdmcExit();
 	fsExit();
 	srvExit();
@@ -303,20 +321,6 @@ void mainMenu(int clearindex)
 	
 	if (clearindex != 0)
 		updateList(CLEAR);
-	
-/*turnOnBGM:
-	if (fileExists(fsArchive, "/3ds/dspfirm.cdc"))
-	{
-		if (fileExists(fsArchive, "/3ds/3DShell/bgm.ogg"))
-		{
-			if ((!(isPlaying)) && (bgmEnable == true))
-				audio_load_ogg("/3ds/3DShell/bgm.ogg");
-		}
-	}
-
-turnOffBGM:
-	if ((isPlaying) && (bgmEnable == false))
-		sound_stop(bgm);*/
 	
 	while (aptMainLoop())
 	{
@@ -449,8 +453,8 @@ turnOffBGM:
 			
 			BROWSE_STATE = STATE_SD;
 			
-			closeArchive();
-			openArchive(ARCHIVE_SDMC);
+			closeArchive(fsArchive);
+			openArchive(&fsArchive, ARCHIVE_SDMC);
 			
 			updateList(CLEAR);
 			displayFiles();
@@ -462,8 +466,8 @@ turnOffBGM:
 			
 			BROWSE_STATE = STATE_NAND;
 			
-			closeArchive();
-			openArchive(ARCHIVE_NAND_CTR_FS);
+			closeArchive(fsArchive);
+			openArchive(&fsArchive, ARCHIVE_NAND_CTR_FS);
 			
 			updateList(CLEAR);
 			displayFiles();

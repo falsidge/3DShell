@@ -67,10 +67,10 @@ void installDirectories(void)
 			fscanf(read, "%d", &info);
 			fclose(read);
 		
-			if (info == 0)
-				sysProtection = false;
-			else 
+			if (info)
 				sysProtection = true;
+			else 
+				sysProtection = false;
 		}
 		
 		if (!fileExists(fsArchive, "/3ds/3DShell/isHidden.txt")) // Initially set it to true
@@ -86,12 +86,42 @@ void installDirectories(void)
 			fscanf(read, "%d", &info);
 			fclose(read);
 		
-			if (info == 0)
-				isHiddenEnabled = false;
-			else 
+			if (info)
 				isHiddenEnabled = true;
+			else 
+				isHiddenEnabled = false;
 		}
 	}
+}
+
+u64 getFreeStorage(FS_SystemMediaType mediaType)
+{
+	FS_ArchiveResource	resource = {0};
+	
+	if (R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, mediaType)))
+		return (((u64) resource.freeClusters * (u64) resource.clusterSize));
+	
+	return 0;
+}
+
+u64 getTotalStorage(FS_SystemMediaType mediaType)
+{
+	FS_ArchiveResource	resource = {0};
+	
+	if (R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, mediaType)))
+		return (((u64) resource.totalClusters * (u64) resource.clusterSize));
+	
+	return 0;
+}
+
+u64 getUsedStorage(FS_SystemMediaType mediaType)
+{
+	FS_ArchiveResource	resource = {0};
+	
+	if (R_SUCCEEDED(FSUSER_GetArchiveResource(&resource, mediaType)))
+		return ((((u64) resource.totalClusters * (u64) resource.clusterSize)) - (((u64) resource.freeClusters * (u64) resource.clusterSize)));
+	
+	return 0;
 }
 
 void getSizeString(char * string, uint64_t size) //Thanks TheOfficialFloW
@@ -100,7 +130,9 @@ void getSizeString(char * string, uint64_t size) //Thanks TheOfficialFloW
 
 	int i = 0;
 	static char *units[] = { "B", "KB", "MB", "GB", "TB", "PB", "EB", "ZB", "YB" };
-	while (double_size >= 1024.0f) {
+	
+	while (double_size >= 1024.0f) 
+	{
 		double_size /= 1024.0f;
 		i++;
 	}
@@ -108,26 +140,26 @@ void getSizeString(char * string, uint64_t size) //Thanks TheOfficialFloW
 	sprintf(string, "%.*f %s", (i == 0) ? 0 : 2, double_size, units[i]);
 }
 
-int touchGetX(void)
+u16 touchGetX(void)
 {
 	touchPosition pos;	
 	hidTouchRead(&pos);
 	return pos.px;
 }
 
-int touchGetY(void)
+u16 touchGetY(void)
 {
 	touchPosition pos;	
 	hidTouchRead(&pos);
 	return pos.py;
 }
 
-void setConfig(const char * path, bool set) // using individual txt files for configs for now (plan to change this later when there's more options)
+Result setConfig(const char * path, bool set) // using individual txt files for configs for now (plan to change this later when there's more options)
 {
-	if (set == true)
-		writeFile(path, "1");
-	else
-		writeFile(path, "0");
+	if (set)
+		return writeFile(path, "1");
+	
+	return writeFile(path, "0");
 }
 
 const char * getLastNChars(char * str, int n)
@@ -139,47 +171,54 @@ const char * getLastNChars(char * str, int n)
 
 u8 getRegion(void)
 {
-	u8 region;
-	CFGU_SecureInfoGetRegion(&region);
+	u8 region = 0;
 	
-	return region;
+	if (R_SUCCEEDED(CFGU_SecureInfoGetRegion(&region)))
+		return region;
+	
+	return 0;
 }
 
 u8 getLanguage(void)
 {
-	u8 language;
-	CFGU_GetSystemLanguage(&language);
+	u8 language = 0;
 	
-	return language;
+	if (R_SUCCEEDED(CFGU_GetSystemLanguage(&language)))
+		return language;
+	
+	return 0;
 }
 
 const char * getUsername(void) 
 {
-	u8 * data = (u8*)malloc(28);
-	char * username = (char*)malloc(0x13);
+	u8 data[0x1C];
+	static wchar_t whcar_username[0x1C];
+	char * username = (char *)malloc(0x1C);
     
-	CFGU_GetConfigInfoBlk2(0x1C, 0x000A0000, data);
-
-	for (int i = 0; i < 0x13; i++)
-		username[i] = (char)((u16*)data)[i];
+	if (R_SUCCEEDED(CFGU_GetConfigInfoBlk2(0x1C, 0x000A0000, data)))
+	{
+		for (int i = 0; i < 0x1C; i++)
+			whcar_username[i] = (wchar_t)((u16 *)data)[i];
+	}
+	
+	wcstombs(username, whcar_username, 0x1C);
 	
 	return username;
 }
 
 bool isN3DS(void)
 {
-	bool isNew3DS = 0;
-	APT_CheckNew3DS(&isNew3DS);
-    
-	if (isNew3DS)
-		return true;
-	else
-		return false;
+	bool isNew3DS = false;
+	
+	if (R_SUCCEEDED(APT_CheckNew3DS(&isNew3DS)))
+		return isNew3DS;
+	
+	return false;
 }
 
-void u16_to_u8(char* buf, const u16* input, size_t bufsize)
+void u16_to_u8(char * buf, const u16 * input, size_t bufsize)
 {
-	ssize_t units = utf16_to_utf8((uint8_t*)buf, input, bufsize);
+	ssize_t units = utf16_to_utf8((u8 *)buf, input, bufsize);
 	
 	if (units < 0) 
 		units = 0;

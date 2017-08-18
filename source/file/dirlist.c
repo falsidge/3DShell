@@ -11,11 +11,11 @@
 #include "language.h"
 #include "main.h"
 #include "mcu.h"
+#include "music.h"
 #include "net.h"
 #include "power.h"
 #include "screen.h"
 #include "screenshot.h"
-#include "sound.h"
 #include "text.h"
 #include "theme.h"
 #include "updater.h"
@@ -52,6 +52,11 @@ int fileCount = 0;
 */
 File * files = NULL;
 
+/*static int cmpstringp(const void * p1, const void * p2)
+{
+	return strcasecmp(* (char * const *) p1, * (char * const *) p2);
+}*/
+
 void updateList(int clearindex)
 {
 	recursiveFree(files);
@@ -64,7 +69,7 @@ void updateList(int clearindex)
 	u32 entriesRead;
 	static char dname[1024];
 
-	if(R_SUCCEEDED(directory))
+	if (R_SUCCEEDED(directory))
 	{
 		/* Add fake ".." entry except on root */
 		if (strcmp(cwd, ROOT_PATH)) 
@@ -90,82 +95,85 @@ void updateList(int clearindex)
 			memset(&info, 0, sizeof(FS_DirectoryEntry));
 			
 			entriesRead = 0;
-			FSDIR_Read(dirHandle, &entriesRead, 1, &info);
-			
-			if(entriesRead)
+			if (R_SUCCEEDED(FSDIR_Read(dirHandle, &entriesRead, 1, &info)))
 			{
-				u16_to_u8(&dname[0], info.name, 0xFF);
-				
-				// Ingore null filename
-				if(dname[0] == '\0') 
-					continue;
-
-				// Ignore "." in all Directories
-				if(strncmp(dname, ".", 1) == 0) 
-					continue;
-
-				// Ignore ".." in Root Directory
-				if(strcmp(cwd, ROOT_PATH) == 0 && strncmp(dname, "..", 2) == 0) 
-					continue;
-
-				// Allocate memory
-				File * item = (File *)malloc(sizeof(File));
-
-				// Clear memory
-				memset(item, 0, sizeof(File));
-
-				// Copy file name
-				strcpy(item->name, dname);
-
-				// Set folder flag
-				item->isDir = info.attributes & FS_ATTRIBUTE_DIRECTORY;
-				
-				// Set read-Only flag
-				item->isReadOnly = info.attributes & FS_ATTRIBUTE_READ_ONLY; 
-				
-				// Set read-Only flag
-				item->isHidden = info.attributes & FS_ATTRIBUTE_HIDDEN; 
-				
-				if ((isHiddenEnabled) && (item->isHidden))
-					continue;
-				
-				// Copy file extension
-				strcpy(item->ext, info.shortExt);
-				
-				// Copy file size
-				item->size = info.fileSize;
-
-				// New list
-				if(files == NULL) 
-					files = item;
-
-				// Existing list
-				else
+				if (entriesRead)
 				{
-					// Iterator variable
-					File * list = files;
+					u16_to_u8(&dname[0], info.name, 0xFF);
+				
+					// Ingore null filename
+					if (dname[0] == '\0') 
+						continue;
 
-					// Append to list
-					while(list->next != NULL) list = list->next;
+					// Ignore "." in all Directories
+					if (strncmp(dname, ".", 1) == 0) 
+						continue;
 
-					// Link item
-					list->next = item;
+					// Ignore ".." in Root Directory
+					if (strcmp(cwd, ROOT_PATH) == 0 && strncmp(dname, "..", 2) == 0) 
+						continue;
+
+					// Allocate memory
+					File * item = (File *)malloc(sizeof(File));
+
+					// Clear memory
+					memset(item, 0, sizeof(File));
+
+					// Copy file name
+					strcpy(item->name, dname);
+
+					// Set folder flag
+					item->isDir = info.attributes & FS_ATTRIBUTE_DIRECTORY;
+				
+					// Set read-Only flag
+					item->isReadOnly = info.attributes & FS_ATTRIBUTE_READ_ONLY; 
+				
+					// Set read-Only flag
+					item->isHidden = info.attributes & FS_ATTRIBUTE_HIDDEN; 
+				
+					if ((isHiddenEnabled) && (item->isHidden))
+						continue;
+				
+					// Copy file extension
+					strcpy(item->ext, info.shortExt);
+				
+					// Copy file size
+					item->size = info.fileSize;
+
+					// New list
+					if (files == NULL) 
+						files = item;
+
+					// Existing list
+					else
+					{
+						// Iterator variable
+						File * list = files;
+
+						// Append to list
+						while(list->next != NULL) list = list->next;
+
+						// Link item
+						list->next = item;
+					}
+
+					// Increase file count
+					fileCount++;
 				}
-
-				// Increase file count
-				fileCount++;
 			}
 		} 
 		while(entriesRead);
+		
+		//qsort(&dname[0], fileCount, sizeof(char *), cmpstringp);
 
 		// Close directory
 		FSDIR_Close(dirHandle);
 	}
 
 	// Attempt to keep index
-	if(!clearindex)
+	if (!clearindex)
 	{
-		if(position >= fileCount) 
+		if (position >= fileCount) 
 			position = fileCount - 1; // Fix position
 	}
 
@@ -177,7 +185,7 @@ void updateList(int clearindex)
 void recursiveFree(File * node)
 {
 	// End of list
-	if(node == NULL)
+	if (node == NULL)
 		return;
 
 	// Nest further
@@ -310,12 +318,12 @@ void displayFiles(void)
 		
 		screen_draw_string(170, 72, 0.41f, 0.41f, RGBA8(Options_text_colour.r, Options_text_colour.g, Options_text_colour.b, 255), lang_options[language][2]);
 	
-		if(copyF == false)
+		if (copyF == false)
 			screen_draw_string(170, 109, 0.41f, 0.41f, RGBA8(Options_text_colour.r, Options_text_colour.g, Options_text_colour.b, 255), lang_options[language][4]);
 		else
 			screen_draw_string(170, 109, 0.41f, 0.41f, RGBA8(Options_text_colour.r, Options_text_colour.g, Options_text_colour.b, 255), lang_options[language][7]);
 	
-		if(cutF == false)
+		if (cutF == false)
 			screen_draw_string(170, 146, 0.41f, 0.41f, RGBA8(Options_text_colour.r, Options_text_colour.g, Options_text_colour.b, 255), lang_options[language][6]);
 		else
 			screen_draw_string(170, 146, 0.41f, 0.41f, RGBA8(Options_text_colour.r, Options_text_colour.g, Options_text_colour.b, 255), lang_options[language][7]);
@@ -333,16 +341,9 @@ void displayFiles(void)
 	drawBatteryStatus(295, 2);
 	digitalTime();
 	
-	FS_ArchiveResource	resource = {0};
-	
-	if (BROWSE_STATE == STATE_SD)
-		FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_SD);
-	else 
-		FSUSER_GetArchiveResource(&resource, SYSTEM_MEDIATYPE_CTR_NAND);
-	
-	double totalStorage = (((u64) resource.totalClusters * (u64) resource.clusterSize) / 1024.0 / 1024.0);
-	double usedStorage = (totalStorage - (((u64) resource.freeClusters * (u64) resource.clusterSize) / 1024.0 / 1024.0));
-	double fill = ((usedStorage / totalStorage) * 208.0);
+	u64 totalStorage = getTotalStorage(BROWSE_STATE? SYSTEM_MEDIATYPE_CTR_NAND : SYSTEM_MEDIATYPE_SD);
+	u64 usedStorage = getUsedStorage(BROWSE_STATE? SYSTEM_MEDIATYPE_CTR_NAND : SYSTEM_MEDIATYPE_SD);
+	double fill = (((double)usedStorage / (double)totalStorage) * 208.0);
 	
 	screen_draw_rect(83, 47, fill, 2, RGBA8(Storage_colour.r, Storage_colour.g, Storage_colour.b, 255)); // Draw storage bar
 
@@ -358,13 +359,13 @@ void displayFiles(void)
 	for(; file != NULL; file = file->next)
 	{
 		// Limit the files per page
-		if(printed == FILES_PER_PAGE) 
+		if (printed == FILES_PER_PAGE) 
 			break;
 
-		if(position < FILES_PER_PAGE || i > (position - FILES_PER_PAGE))
+		if (position < FILES_PER_PAGE || i > (position - FILES_PER_PAGE))
 		{
 			// Draw selector
-			if(i == position)
+			if (i == position)
 				screen_draw_texture(TEXTURE_SELECTOR, 0, 53 + (38 * printed));
 			
 			char path[500];
@@ -446,7 +447,7 @@ void openFile(void)
 {
 	File * file = findindex(position);
 
-	if(file == NULL) 
+	if (file == NULL) 
 		return;
 	
 	char path[1024];
@@ -459,7 +460,7 @@ void openFile(void)
 	if (file->isDir)
 	{
 		// Attempt to navigate to target
-		if(R_SUCCEEDED(navigate(0)))
+		if (R_SUCCEEDED(navigate(0)))
 		{	
 			if (BROWSE_STATE != STATE_NAND)
 				saveLastDirectory();
@@ -474,6 +475,8 @@ void openFile(void)
 		displayImage(path);
 	else if ((strncmp(file->ext, "cia", 3) == 0) || (strncmp(file->ext, "CIA", 3) == 0))
 		displayCIA(path);
+	else if ((strncmp(file->ext, "ogg", 3) == 0) || (strncmp(file->ext, "OGG", 3) == 0))
+		musicPlayer(path);
 	else if ((strncmp(file->ext, "zip", 3) == 0) || (strncmp(file->ext, "ZIP", 3) == 0))
 	{
 		extractZip(path, cwd);
@@ -491,11 +494,11 @@ int navigate(int _case)
 	File * file = findindex(position);
 
 	// Not a folder
-	if(file == NULL || !file->isDir) 
+	if (file == NULL || !file->isDir) 
 		return -1;
 
 	// Special case ".."
-	if((_case == -1) || (strncmp(file->name, "..", 2) == 0))
+	if ((_case == -1) || (strncmp(file->name, "..", 2) == 0))
 	{
 		// Slash pointer
 		char * slash = NULL;
@@ -504,7 +507,7 @@ int navigate(int _case)
 		int i = strlen(cwd) - 2; for(; i >= 0; i--)
 		{
 			// Slash discovered
-			if(cwd[i] == '/')
+			if (cwd[i] == '/')
 			{
 				// Save pointer
 				slash = cwd + i + 1;
@@ -582,7 +585,7 @@ int drawDeletionDialog(void)
 			
 		if ((kPressed & KEY_A) || ((touchInRect(240, 320, 142, 185))  && (kPressed & KEY_TOUCH)))
 		{
-			if(R_SUCCEEDED(delete()))
+			if (R_SUCCEEDED(delete()))
 			{
 				updateList(CLEAR);
 				displayFiles();
@@ -606,7 +609,7 @@ int displayProperties(void)
 {
 	File * file = findindex(position);
 
-	if(file == NULL) 
+	if (file == NULL) 
 		return -1;
 	
 	char path[255], fullPath[500];
