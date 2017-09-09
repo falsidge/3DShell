@@ -14,7 +14,8 @@ enum file_types
 	FILE_TYPE_WAV,
 	FILE_TYPE_FLAC,
 	FILE_TYPE_VORBIS,
-	FILE_TYPE_MP3
+	FILE_TYPE_MP3,
+	FILE_TYPE_OPUS
 };
 
 struct decoder_fn

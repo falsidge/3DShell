@@ -5,6 +5,7 @@
 #include "audio/mp3.h"
 #include "audio/vorbis.h"
 #include "audio/wav.h"
+#include "audio/opus.h"
 #include "clock.h"
 #include "common.h"
 #include "fs.h"
@@ -85,6 +86,8 @@ enum file_types getMusicFileType(const char * file)
 				file_type = FILE_TYPE_FLAC;
 			else if(isVorbis(file) == 0)
 				file_type = FILE_TYPE_VORBIS;
+			else if (isOpus(file) == 0)
+				file_type = FILE_TYPE_OPUS;
 
 			break;
 
@@ -140,6 +143,10 @@ static void playFile(void * pathIn)
 
 		case FILE_TYPE_VORBIS:
 			setVorbis(&decoder);
+			break;
+
+		case FILE_TYPE_OPUS:
+			setOpus(&decoder);
 			break;
 
 		default:
